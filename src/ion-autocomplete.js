@@ -125,7 +125,16 @@ angular.module('ion-autocomplete', []).directive('ionAutocomplete', [
                             var items = [];
                             angular.forEach(item, function (itemValue) {
                                 if (key && angular.isObject(item)) {
-                                    items.push($parse(key)(itemValue));
+                                    var keys = key.split(",");
+                                    if(keys.length == 1){
+                                        items.push($parse(key)(itemValue));
+                                    }
+                                    var valueStr = "";
+                                    for(var k in keys){
+                                        valueStr += $parse(keys[k])(item)+" ";
+                                    }
+                                    items.push( valueStr);
+                                   
                                 } else {
                                     items.push(itemValue);
                                 }
