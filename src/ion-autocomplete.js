@@ -1,3 +1,13 @@
+/*
+ * ion-autocomplete 0.3.0
+ * Copyright 2015 Danny Povolotski
+ * Copyright modifications 2015 Guy Brand
+ * https://github.com/guylabs/ion-autocomplete
+ */
+(function() {
+
+'use strict';
+
 angular.module('ion-autocomplete', []).directive('ionAutocomplete', [
     '$ionicBackdrop', '$ionicScrollDelegate', '$document', '$q', '$parse', '$interpolate', '$ionicPlatform', '$compile', '$templateRequest',
     function ($ionicBackdrop, $ionicScrollDelegate, $document, $q, $parse, $interpolate, $ionicPlatform, $compile, $templateRequest) {
@@ -54,10 +64,6 @@ angular.module('ion-autocomplete', []).directive('ionAutocomplete', [
                 this.searchItems = [];
                 this.selectedItems = [];
                 this.searchQuery = undefined;
-
-                this.isArray = function (array) {
-                    return angular.isArray(array);
-                };
             }],
             link: function (scope, element, attrs, controllers) {
 
@@ -79,18 +85,13 @@ angular.module('ion-autocomplete', []).directive('ionAutocomplete', [
                     '<button class="ion-autocomplete-cancel button button-clear" ng-click="viewModel.cancelClick()">{{viewModel.cancelLabel}}</button>',
                     '</div>',
                     '<ion-content class="has-header">',
-                    '<ion-item class="item-divider">{{viewModel.selectedItemsLabel}}</ion-item>',
-                    '<ion-item ng-if="viewModel.isArray(viewModel.selectedItems)" ng-repeat="selectedItem in viewModel.selectedItems track by $index" class="item-icon-left item-icon-right item-text-wrap">',
+                    '<ion-item class="item-divider" ng-show="viewModel.selectedItems.length > 0">{{viewModel.selectedItemsLabel}}</ion-item>',
+                    '<ion-item ng-repeat="selectedItem in viewModel.selectedItems track by $index" class="item-icon-left item-icon-right item-text-wrap">',
                     '<i class="icon ion-checkmark"></i>',
                     '{{viewModel.getItemValue(selectedItem, viewModel.itemViewValueKey)}}',
                     '<i class="icon ion-trash-a" style="cursor:pointer" ng-click="viewModel.removeItem($index)"></i>',
                     '</ion-item>',
-                    '<ion-item ng-if="!viewModel.isArray(viewModel.selectedItems)" class="item-icon-left item-icon-right item-text-wrap">',
-                    '<i class="icon ion-checkmark"></i>',
-                    '{{viewModel.getItemValue(viewModel.selectedItems, viewModel.itemViewValueKey)}}',
-                    '<i class="icon ion-trash-a" style="cursor:pointer" ng-click="viewModel.removeItem(0)"></i>',
-                    '</ion-item>',
-                    '<ion-item class="item-divider" ng-if="viewModel.searchItems.length > 0">{{viewModel.selectItemsLabel}}</ion-item>',
+                    '<ion-item class="item-divider" ng-show="viewModel.searchItems.length > 0">{{viewModel.selectItemsLabel}}</ion-item>',
                     '<ion-item collection-repeat="item in viewModel.searchItems" item-height="55px" item-width="100%" ng-click="viewModel.selectItem(item)" class="item-text-wrap">',
                     '{{viewModel.getItemValue(item, viewModel.itemViewValueKey)}}',
                     '</ion-item>',
@@ -132,7 +133,15 @@ angular.module('ion-autocomplete', []).directive('ionAutocomplete', [
                             return items;
                         } else {
                             if (key && angular.isObject(item)) {
-                                return $parse(key)(item);
+                                var keys = key.split(",");
+                                if(keys.length == 1){
+                                    return $parse(key)(item);
+                                }
+                                var valueStr = "";
+                                for(var k in keys){
+                                    valueStr += $parse(keys[k])(item)+" ";
+                                }
+                                return valueStr;
                             }
                         }
                         return item;
@@ -146,7 +155,6 @@ angular.module('ion-autocomplete', []).directive('ionAutocomplete', [
 
                         // return if the max selected items is not equal to 1 and the maximum amount of selected items is reached
                         if (ionAutocompleteController.maxSelectedItems != "1" &&
-                            angular.isArray(ionAutocompleteController.selectedItems) &&
                             ionAutocompleteController.maxSelectedItems == ionAutocompleteController.selectedItems.length) {
                             return;
                         }
@@ -157,7 +165,7 @@ angular.module('ion-autocomplete', []).directive('ionAutocomplete', [
 
                             // if it is a single select set the item directly
                             if (ionAutocompleteController.maxSelectedItems == "1") {
-                                ionAutocompleteController.selectedItems = item;
+                                ionAutocompleteController.selectedItems = [item];
                             } else {
                                 // create a new array to update the model. See https://github.com/angular-ui/ui-select/issues/191#issuecomment-55471732
                                 ionAutocompleteController.selectedItems = ionAutocompleteController.selectedItems.concat([item]);
@@ -178,7 +186,7 @@ angular.module('ion-autocomplete', []).directive('ionAutocomplete', [
                             ionAutocompleteController.itemsClickedMethod({
                                 callback: {
                                     item: item,
-                                    selectedItems: angular.isArray(ionAutocompleteController.selectedItems) ? ionAutocompleteController.selectedItems.slice() : ionAutocompleteController.selectedItems,
+                                    selectedItems: ionAutocompleteController.selectedItems.slice(),
                                     componentId: ionAutocompleteController.componentId
                                 }
                             });
@@ -187,16 +195,10 @@ angular.module('ion-autocomplete', []).directive('ionAutocomplete', [
 
                     // function which removes the item from the selected items.
                     ionAutocompleteController.removeItem = function (index) {
-
-                        // clear the selected items if just one item is selected
-                        if (!angular.isArray(ionAutocompleteController.selectedItems)) {
-                            ionAutocompleteController.selectedItems = [];
-                        } else {
-                            // remove the item from the selected items and create a copy of the array to update the model.
-                            // See https://github.com/angular-ui/ui-select/issues/191#issuecomment-55471732
-                            var removed = ionAutocompleteController.selectedItems.splice(index, 1)[0];
-                            ionAutocompleteController.selectedItems = ionAutocompleteController.selectedItems.slice();
-                        }
+                        // remove the item from the selected items and create a copy of the array to update the model.
+                        // See https://github.com/angular-ui/ui-select/issues/191#issuecomment-55471732
+                        var removed = ionAutocompleteController.selectedItems.splice(index, 1)[0];
+                        ionAutocompleteController.selectedItems = ionAutocompleteController.selectedItems.slice();
 
                         // set the view value and render it
                         ngModelController.$setViewValue(ionAutocompleteController.selectedItems);
@@ -207,7 +209,7 @@ angular.module('ion-autocomplete', []).directive('ionAutocomplete', [
                             ionAutocompleteController.itemsRemovedMethod({
                                 callback: {
                                     item: removed,
-                                    selectedItems: angular.isArray(ionAutocompleteController.selectedItems) ? ionAutocompleteController.selectedItems.slice() : ionAutocompleteController.selectedItems,
+                                    selectedItems: ionAutocompleteController.selectedItems.slice(),
                                     componentId: ionAutocompleteController.componentId
                                 }
                             });
@@ -281,7 +283,7 @@ angular.module('ion-autocomplete', []).directive('ionAutocomplete', [
                         if (searchContainerDisplayed) {
                             return;
                         }
-
+                        ionAutocompleteController.selectedItems = [];
                         // show the backdrop and the search container
                         $ionicBackdrop.retain();
                         angular.element($document[0].querySelector('div.ion-autocomplete-container.' + ionAutocompleteController.randomCssClass)).css('display', 'block');
@@ -366,11 +368,9 @@ angular.module('ion-autocomplete', []).directive('ionAutocomplete', [
                     };
 
                     var isKeyValueInObjectArray = function (objectArray, key, value) {
-                        if (angular.isArray(objectArray)) {
-                            for (var i = 0; i < objectArray.length; i++) {
-                                if (ionAutocompleteController.getItemValue(objectArray[i], key) === value) {
-                                    return true;
-                                }
+                        for (var i = 0; i < objectArray.length; i++) {
+                            if (ionAutocompleteController.getItemValue(objectArray[i], key) === value) {
+                                return true;
                             }
                         }
                         return false;
@@ -406,7 +406,7 @@ angular.module('ion-autocomplete', []).directive('ionAutocomplete', [
                         if (angular.isDefined(attrs.cancelButtonClickedMethod)) {
                             ionAutocompleteController.cancelButtonClickedMethod({
                                 callback: {
-                                    selectedItems: angular.isArray(ionAutocompleteController.selectedItems) ? ionAutocompleteController.selectedItems.slice() : ionAutocompleteController.selectedItems,
+                                    selectedItems: ionAutocompleteController.selectedItems.slice(),
                                     componentId: ionAutocompleteController.componentId
                                 }
                             });
@@ -466,3 +466,5 @@ angular.module('ion-autocomplete', []).directive('ionAutocomplete', [
         };
     }
 ]);
+
+})();
